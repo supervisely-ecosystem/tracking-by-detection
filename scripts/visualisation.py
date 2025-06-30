@@ -40,5 +40,5 @@ for idx, fname in enumerate(frames, start=1):
     cv2.imwrite(outfn,img)
     images.append(imageio.imread(outfn))
 
-imageio.mimsave('comparison_yolox.gif', images, fps=5)
+imageio.mimsave('comparison_combine.gif', images, fps=5)
 print("GIF saved as comparison.gif")
