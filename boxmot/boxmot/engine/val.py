@@ -1,5 +1,7 @@
-
 # Mikel Broström 🔥 Yolo Tracking 🧾 AGPL-3.0 license
+
+import multiprocessing as mp
+mp.set_start_method("spawn", force=True)
 
 import argparse
 import subprocess
@@ -9,6 +11,7 @@ from tqdm import tqdm
 import configparser
 import shutil
 import json
+import yaml
 import cv2
 import re
 import os
@@ -19,7 +22,7 @@ import copy
 import concurrent.futures
 
 from boxmot.tracker_zoo import create_tracker
-from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS, logger as LOGGER, EXAMPLES
+from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS, DATASET_CONFIGS, logger as LOGGER, EXAMPLES
 from boxmot.utils.checks import RequirementsChecker
 from boxmot.utils.torch_utils import select_device
 from boxmot.utils.plots import MetricsPlotter
@@ -35,12 +38,44 @@ from ultralytics.data.build import load_inference_source
 
 from boxmot.engine.detectors import (get_yolo_inferer, default_imgsz,
                                 is_ultralytics_model, is_yolox_model)
-from boxmot.engine.utils import convert_to_mot_format, write_mot_results, download_mot_eval_tools, download_mot_dataset, unzip_mot_dataset, eval_setup, split_dataset
+from boxmot.engine.utils import convert_to_mot_format, write_mot_results, eval_setup
 from boxmot.appearance.reid.auto_backend import ReidAutoBackend
 from tqdm import tqdm
+from boxmot.utils.download import download_eval_data, download_trackeval
 
 checker = RequirementsChecker()
 checker.check_packages(('ultralytics', ))  # install
+
+
+def eval_init(args,
+              trackeval_dest: Path = Path("./boxmot/engine/trackeval"),
+              branch: str = "master",
+              overwrite: bool = False
+    ) -> None:
+    """
+    Common initialization: download TrackEval and (if needed) the MOT-challenge
+    data for ablation runs, then canonicalize args.source.
+    Modifies args in place.
+    """
+    # 1) download the TrackEval code
+    download_trackeval(dest=trackeval_dest, branch=branch, overwrite=overwrite)
+
+    # 2) if doing MOT17/20-ablation, pull down the dataset and rewire args.source/split
+    if args.source in ("MOT17-ablation", "MOT20-ablation", "dancetrack-ablation"):
+        cfg = load_dataset_cfg(str(args.source))
+        download_eval_data(
+            runs_url=cfg["download"]["runs_url"],
+            dataset_url=cfg["download"]["dataset_url"],
+            dataset_dest=Path(cfg["download"]["dataset_dest"]),
+            overwrite=overwrite
+        )
+        args.benchmark = cfg["benchmark"]["name"]
+        args.split = cfg["benchmark"]["split"]
+        args.source = Path(f"./boxmot/engine/trackeval/data/{args.benchmark}/{args.split}")
+        
+
+    # 3) finally, make source an absolute Path everywhere
+    args.source = Path(args.source).resolve()
 
 
 def generate_dets_embs(args: argparse.Namespace, y: Path, source: Path) -> None:
@@ -153,40 +188,35 @@ def generate_dets_embs(args: argparse.Namespace, y: Path, source: Path) -> None:
 
 def parse_mot_results(results: str) -> dict:
     """
-    Extracts COMBINED HOTA, MOTA, IDF1, AssA, and AssRe from MOTChallenge evaluation output.
+    Extracts COMBINED HOTA, MOTA, IDF1, AssA, AssRe, IDSW, and IDs from MOTChallenge evaluation output.
 
     Args:
         results (str): Full MOT evaluation output as a string.
 
     Returns:
-        dict: Dictionary with HOTA, MOTA, IDF1, AssA, and AssRe values.
+        dict: Dictionary with parsed metrics.
     """
+    metric_specs = {
+        'HOTA':   ('HOTA:',      {'HOTA': 0, 'AssA': 2, 'AssRe': 5}),
+        'MOTA':   ('CLEAR:',     {'MOTA': 0, 'IDSW': 12}),
+        'IDF1':   ('Identity:',  {'IDF1': 0}),
+        'IDs':    ('Count:',     {'IDs': 2}),
+    }
+
+    int_fields = {'IDSW', 'IDs'}
     metrics = {}
 
-    # --- HOTA block ---
-    hota_block = re.search(r'HOTA:.*?COMBINED\s+(.*?)\n', results, re.DOTALL)
-    if hota_block:
-        fields = hota_block.group(1).split()
-        if len(fields) >= 7:
-            metrics['HOTA'] = float(fields[0])
-            metrics['AssA'] = float(fields[2])
-            metrics['AssRe'] = float(fields[5])
-
-    # --- MOTA block ---
-    mota_block = re.search(r'CLEAR:.*?COMBINED\s+(.*?)\n', results, re.DOTALL)
-    if mota_block:
-        fields = mota_block.group(1).split()
-        if len(fields) >= 1:
-            metrics['MOTA'] = float(fields[0])
-
-    # --- IDF1 block ---
-    idf1_block = re.search(r'Identity:.*?COMBINED\s+(.*?)\n', results, re.DOTALL)
-    if idf1_block:
-        fields = idf1_block.group(1).split()
-        if len(fields) >= 1:
-            metrics['IDF1'] = float(fields[0])
+    for section, fields_map in metric_specs.values():
+        match = re.search(fr'{re.escape(section)}.*?COMBINED\s+(.*?)\n', results, re.DOTALL)
+        if match:
+            fields = match.group(1).split()
+            for key, idx in fields_map.items():
+                if idx < len(fields):
+                    value = fields[idx]
+                    metrics[key] = int(value) if key in int_fields else float(value)
 
     return metrics
+
 
 
 
@@ -208,12 +238,12 @@ def trackeval(args: argparse.Namespace, seq_paths: list, save_dir: Path, MOT_res
     d = [seq_path.parent.name for seq_path in seq_paths]
 
     args = [
-        sys.executable, EXAMPLES / 'val_utils' / 'scripts' / 'run_mot_challenge.py',
+        sys.executable, EXAMPLES / 'trackeval' / 'scripts' / 'run_mot_challenge.py',
         "--GT_FOLDER", str(gt_folder),
         "--BENCHMARK", "",
         "--TRACKERS_FOLDER", args.exp_folder_path,
         "--TRACKERS_TO_EVAL", "",
-        "--SPLIT_TO_EVAL", "train",
+        "--SPLIT_TO_EVAL", args.split,
         "--METRICS", *metrics,
         "--USE_PARALLEL", "True",
         "--TRACKER_SUB_FOLDER", "",
@@ -370,7 +400,7 @@ def run_generate_mot_results(opt: argparse.Namespace, evolve_config: dict = None
 
     # Optional GSI
     if getattr(opt, 'gsi', False):
-        from boxmot.utils import gsi
+        from boxmot.postprocessing.gsi import gsi
         gsi(mot_results_folder=exp_dir)
 
 
@@ -385,9 +415,9 @@ def run_trackeval(opt: argparse.Namespace) -> dict:
     trackeval_results = trackeval(opt, seq_paths, save_dir, MOT_results_folder, gt_folder)
     hota_mota_idf1 = parse_mot_results(trackeval_results)
     if opt.ci:
-        LOGGER.info(trackeval_results)
         with open(opt.tracking_method + "_output.json", "w") as outfile:
             outfile.write(json.dumps(hota_mota_idf1))
+    LOGGER.info(trackeval_results)
     LOGGER.info(json.dumps(hota_mota_idf1))
     return hota_mota_idf1
 
@@ -404,25 +434,19 @@ def run_all(opt: argparse.Namespace) -> None:
     return run_trackeval(opt)
 
 
+def load_dataset_cfg(name: str) -> dict:
+    """Load the dict from boxmot/configs/datasets/{name}.yaml."""
+    path = DATASET_CONFIGS / f"{name}.yaml"
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
+
+
 def main(args):
-    
-    # download MOT benchmark
-    download_mot_eval_tools(args.val_tools_path)
+    # Download TrackEval
+    eval_init(args)
 
-    if not Path(args.source).exists():
-        zip_path = download_mot_dataset(args.val_tools_path, args.benchmark)
-        unzip_mot_dataset(zip_path, args.val_tools_path, args.benchmark)
-
-    if args.benchmark == 'MOT17':
-        cleanup_mot17(args.source)
-
-    if args.split_dataset:
-        args.source, args.benchmark = split_dataset(args.source)
-
-    if args.command == 'generate_dets_embs':
+    if args.command == 'generate':
         run_generate_dets_embs(args)
-    elif args.command == 'generate_mot_results':
-        run_generate_mot_results(args)
     elif args.command == 'trackeval':
         results = run_trackeval(args)
     else:
@@ -439,7 +463,6 @@ def main(args):
         ytick_labels=['65', '70', '75', '80', '85']
     )
         
-    
 
 if __name__ == "__main__":
     main()

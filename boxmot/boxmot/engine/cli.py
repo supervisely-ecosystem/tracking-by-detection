@@ -36,8 +36,8 @@ def main():
         help='file/dir/URL/glob, 0 for webcam'
     )
     common_parser.add_argument('--imgsz', '--img-size', nargs='+', type=int,
-                               default=640, help='inference size h,w')
-    common_parser.add_argument('--fps', type=int, default=None,
+                               default=None, help='inference size h,w')
+    common_parser.add_argument('--fps', type=int, default=30,
                                help='video frame-rate')
     common_parser.add_argument('--conf', type=float, default=0.01,
                                help='min confidence threshold')
@@ -78,7 +78,7 @@ def main():
                                default=["HOTA", "MOTA", "IDF1"],
                                help='objectives for tuning: HOTA, MOTA, IDF1')
     common_parser.add_argument('--val-tools-path', type=Path,
-                               default=EXAMPLES / 'val_utils',
+                               default=EXAMPLES / 'trackeval',
                                help='where to clone trackeval')
     common_parser.add_argument('--split-dataset', action='store_true',
                                help='use second half of dataset')
@@ -108,16 +108,10 @@ def main():
     # Sub-commands inherit their respective flags
     sub.add_parser('track', parents=[common_parser], help='Run tracking only')
     sub.add_parser(
-        'generate-dets-embs',
+        'generate',
         parents=[common_parser, eval_parent],
         conflict_handler='resolve',
         help='Generate detections and embeddings'
-    )
-    sub.add_parser(
-        'generate-mot-results',
-        parents=[common_parser, eval_parent],
-        conflict_handler='resolve',
-        help='Generate MOT evaluation results'
     )
     sub.add_parser(
         'eval',
@@ -146,12 +140,9 @@ def main():
     if args.command == 'track':
         from boxmot.engine.track import main as run_track
         run_track(args)
-    elif args.command == 'generate-dets-embs':
+    elif args.command == 'generate':
         from boxmot.engine.val import run_generate_dets_embs
         run_generate_dets_embs(args)
-    elif args.command == 'generate-mot-results':
-        from boxmot.engine.val import run_generate_mot_results
-        run_generate_mot_results(args)
     # trackeval only support single class evaluation in its current setup
     elif args.command in ('eval', 'all'):
         from boxmot.engine.val import main as run_eval

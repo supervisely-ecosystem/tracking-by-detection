@@ -58,20 +58,16 @@ def on_predict_start(predictor, persist=False):
 # callback to plot trajectories on each frame
 def plot_trajectories(predictor):
     # predictor.results is a list of Results, one per frame in the batch
-    try:
-        for i, result in enumerate(predictor.results):
-            tracker = predictor.trackers[i]
-            result.orig_img = tracker.plot_results(result.orig_img, predictor.custom_args.show_trajectories)
-            cv2.waitKey(1)
-    except Exception as e:
-        print(f"Error while plotting trajectories: {e}")
-        return
+    for i, result in enumerate(predictor.results):
+        tracker = predictor.trackers[i]
+        result.orig_img = tracker.plot_results(result.orig_img, predictor.custom_args.show_trajectories)
+        cv2.waitKey(1)
+
 
 @torch.no_grad()
 def main(args):
     if args.imgsz is None:
         args.imgsz = default_imgsz(args.yolo_model)
-        
     yolo = YOLO(
         args.yolo_model if is_ultralytics_model(args.yolo_model) else "yolov8n.pt",
     )
@@ -81,7 +77,7 @@ def main(args):
         conf=args.conf,
         iou=args.iou,
         agnostic_nms=args.agnostic_nms,
-        show=False,
+        show=True,
         stream=True,
         device=args.device,
         show_conf=args.show_conf,

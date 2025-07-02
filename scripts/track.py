@@ -8,54 +8,31 @@ import torch
 import numpy as np
 from pathlib import Path
 from loguru import logger
-
 from ultralytics import YOLO
+import yaml
+from types import SimpleNamespace
 
 # --- Подключение трекеров ---
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT)
 sys.path.append(os.path.join(ROOT, 'botsort'))
-sys.path.append(os.path.join(ROOT, 'boxmot', 'boxmot'))
+sys.path.append(os.path.join(ROOT, 'boxmot'))
 
 from botsort.tracker.mc_bot_sort import BoTSORT as BoTSORT_ORIG
 from boxmot.trackers.botsort.botsort import BotSort as BoTSORT_BOXMOT
 from botsort.yolox.utils.visualize import plot_tracking
 from botsort.tracker.tracking_utils.timer import Timer
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, required=True, help="Путь до видео или папки с изображениями")
-    parser.add_argument("-n", "--name", type=str, default="yolov8_demo", help="model name")
-    parser.add_argument("--yolo_weights", type=str, default="yolov8n.pt", help="YOLOv8 веса")
-    parser.add_argument("--imgsz", type=int, default=640, help="размер изображения")
-    parser.add_argument("--conf", type=float, default=0.3, help="порог уверенности YOLO")
-    parser.add_argument("--save_dir", type=str, default="runs", help="Папка для сохранения результатов")
-    parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument('--config', type=str, help='Path to YAML config')
+    args = parser.parse_args()
 
-    # tracking params
-    parser.add_argument("--track_high_thresh", type=float, default=0.6)
-    parser.add_argument("--track_low_thresh", type=float, default=0.1)
-    parser.add_argument("--new_track_thresh", type=float, default=0.7)
-    parser.add_argument("--track_buffer", type=int, default=30)
-    parser.add_argument("--match_thresh", type=float, default=0.8)
-    parser.add_argument("--min_box_area", type=float, default=10)
+    with open(args.config, 'r') as f:
+        config = yaml.safe_load(f)
 
-    # appearance model (reid)
-    parser.add_argument("--with-reid", action="store_true")
-    parser.add_argument("--fast-reid-config", default="", help="путь до .yml конфигурации fastreid")
-    parser.add_argument("--fast-reid-weights", default="", help="путь до весов fastreid")
-    parser.add_argument("--proximity_thresh", type=float, default=0.5)
-    parser.add_argument("--appearance_thresh", type=float, default=0.25)
-
-    parser.add_argument("--fuse_score", action="store_true")
-    parser.add_argument("--ablation", action="store_true")
-    parser.add_argument("--mot20", action="store_true")
-    parser.add_argument("--fp16", action="store_true")
-    parser.add_argument("--cmc_method", default="sparseOptFlow", help="Метод компенсации движения камеры: sparseOptFlow | ecc | orb | files")
-
-
-    return parser.parse_args()
-
+    return SimpleNamespace(**config)
 
 def write_results(filename, results):
     fmt = '{frame},{id},{x1},{y1},{w},{h},{s},-1,-1,-1\n'
@@ -114,7 +91,7 @@ def run_dual_tracking(args):
         timer.tic()
         results = model(frame, conf=args.conf, imgsz=args.imgsz)[0]
         timer.toc()
-
+        
         dets = []
         if results.boxes is not None:
             xyxy = results.boxes.xyxy.cpu().numpy()
@@ -126,22 +103,12 @@ def run_dual_tracking(args):
                 cls = clss[i]
                 dets.append([x1, y1, x2, y2, c, c, cls])
         dets = np.array(dets)
+        
 
         # Обновляем оба трекера
         targets_orig = tracker_orig.update(dets, frame)
         targets_boxmot = tracker_boxmot.update(dets, frame)
-
-        # for targets, results_list in zip([targets_orig, targets_boxmot], [results_orig, results_boxmot]):
-        #     tlwhs, ids, scores = [], [], []
-        #     for t in targets:
-        #         tlwh = t.tlwh
-        #         if tlwh[2] * tlwh[3] > 10:  # min_box_area
-        #             tlwhs.append(tlwh)
-        #             ids.append(t.track_id)
-        #             scores.append(t.score)
-        #     results_list.append((frame_id, tlwhs, ids, scores))
         
-                # трекер botsort (оригинал)
         tlwhs_o, ids_o, scores_o = [], [], []
         for t in targets_orig:
             tlwh = t.tlwh
@@ -167,9 +134,9 @@ def run_dual_tracking(args):
         # Отрисовка
         vis = plot_tracking(frame.copy(), [t.tlwh for t in targets_orig], [t.track_id for t in targets_orig],
                             frame_id=frame_id, fps=1. / max(0.001, timer.average_time))
-        cv2.imshow("BoT-SORT original", vis)
-        if cv2.waitKey(1) == 27:
-            break
+        # cv2.imshow("BoT-SORT original", vis)
+        # if cv2.waitKey(1) == 27:
+        #     break
 
     # Запись результатов
     write_results(osp.join(args.save_dir, "botsort_original.txt"), results_orig)

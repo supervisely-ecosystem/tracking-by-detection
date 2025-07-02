@@ -1,23 +1,24 @@
 # BoxMOT: pluggable SOTA tracking modules for segmentation, object detection and pose estimation models
 
 <div align="center">
-  <p>
-  <img src="https://github.com/mikel-brostrom/boxmot/releases/download/v12.0.0/output_640.gif" width="400"/>
-  </p>
-  <br>
-  <div>
-  <a href="https://github.com/mikel-brostrom/yolov8_tracking/actions/workflows/ci.yml"><img src="https://github.com/mikel-brostrom/yolov8_tracking/actions/workflows/ci.yml/badge.svg" alt="CI CPU testing"></a>
-  <a href="https://pepy.tech/project/boxmot"><img src="https://static.pepy.tech/badge/boxmot"></a>
-  <a><img src="https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fmikel-brostrom%2Fboxmot%2Frefs%2Fheads%2Fmaster%2Fpyproject.toml" alt="CI CPU testing"></a>
-  <br>
-  <a href="https://colab.research.google.com/drive/18nIqkBr68TkK8dHdarxTco6svHUJGggY?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
-<a href="https://doi.org/10.5281/zenodo.8132989"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.8132989.svg" alt="DOI"></a>
-<a href="https://hub.docker.com/r/boxmot/boxmot"><img src="https://img.shields.io/docker/pulls/boxmot/boxmot?logo=docker" alt="Ultralytics Docker Pulls"></a>
 
-[![discord](https://img.shields.io/discord/1377565354326495283?logo=discord&label=discord&labelColor=fff&color=5865f2&link=https%3A%2F%2Fdiscord.gg%2FGbfgXGJ8Bk)](https://discord.gg/3w4aYGbU)
+  <img width="640"
+       src="https://github.com/mikel-brostrom/boxmot/releases/download/v12.0.0/output_640.gif"
+       alt="BoxMot demo">
+  <br> <!-- one blank line -->
 
-  </div>
+  [![CI](https://github.com/mikel-brostrom/yolov8_tracking/actions/workflows/ci.yml/badge.svg)](https://github.com/mikel-brostrom/yolov8_tracking/actions/workflows/ci.yml)
+  [![PyPI version](https://badge.fury.io/py/boxmot.svg)](https://badge.fury.io/py/boxmot)
+  [![downloads](https://static.pepy.tech/badge/boxmot)](https://pepy.tech/project/boxmot)
+  [![license](https://img.shields.io/badge/license-AGPL%203.0-blue)](https://github.com/mikel-brostrom/boxmot/blob/master/LICENSE)
+  [![python-version](https://img.shields.io/pypi/pyversions/boxmot)](https://badge.fury.io/py/boxmot)
+  [![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/18nIqkBr68TkK8dHdarxTco6svHUJGggY?usp=sharing)
+  [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8132989.svg)](https://doi.org/10.5281/zenodo.8132989)
+  [![docker pulls](https://img.shields.io/docker/pulls/boxmot/boxmot?logo=docker)](https://hub.docker.com/r/boxmot/boxmot)
+  [![discord](https://img.shields.io/discord/1377565354326495283?logo=discord&label=discord&labelColor=fff&color=5865f2)](https://discord.gg/3w4aYGbU)
 </div>
+
+
 
 ## Introduction
 
@@ -31,8 +32,8 @@ This repository addresses the fragmented nature of the multi-object tracking (MO
 | [boosttrack](https://arxiv.org/abs/2408.13003) | ✅ | 69.253 | 75.914 | 83.206 | 25 |
 | [botsort](https://arxiv.org/abs/2206.14651) | ✅ | 68.885 | 78.222 | 81.344 | 46 |
 | [strongsort](https://arxiv.org/abs/2202.13514) | ✅ | 68.05 | 76.185 | 80.763 | 17 |
+| [deepocsort](https://arxiv.org/abs/2302.11813) | ✅ | 67.796 | 75.868 | 80.514 | 12 |
 | [bytetrack](https://arxiv.org/abs/2110.06864) | ✅ | 67.68 | 78.039 | 79.157 | 1265 |
-| [deepocsort](https://arxiv.org/abs/2302.11813) | ✅ | 67.509 | 75.83 | 79.976 | 12 |
 | [ocsort](https://arxiv.org/abs/2203.14360) | ✅ | 66.441 | 74.548 | 77.899 | 1483 |
 
 <!-- END TRACKER TABLE -->
@@ -64,11 +65,12 @@ Usage: boxmot COMMAND [ARGS]...
 
 Commands:
   track                  Run tracking only
-  generate-dets-embs     Generate detections and embeddings
-  generate-mot-results   Generate MOT evaluation results based on pregenerated detecions and embeddings
+  generate               Generate detections and embeddings
   eval                   Evaluate tracking performance using the official trackeval repository
   tune                   Tune tracker hyperparameters based on selected detections and embeddings
 ```
+
+If you want to contribute to this package check how to contribute [here](https://github.com/mikel-brostrom/boxmot/CONTRIBUTING.md)
 
 ## YOLOv12 | YOLOv11 | YOLOv10 | YOLOv9 | YOLOv8 | RFDETR | YOLOX examples
 
@@ -162,8 +164,14 @@ boxmot track --source 0 --yolo-model yolov8s.pt --classes 16 17  # COCO yolov8 m
 Evaluate a combination of detector, tracking method and ReID model on standard MOT dataset or you custom one by
 
 ```bash
-$ boxmot eval --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method deepocsort --verbose --source ./assets/MOT17-mini/train
-$ boxmot eval --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method ocsort     --verbose --source ./tracking/val_utils/MOT17/train
+# reproduce MOT17 README results
+$ boxmot eval --yolo-model yolox_x_MOT17_ablation.pt --reid-model lmbn_n_duke.pt --tracking-method boosttrack --source MOT17-ablation --verbose 
+# MOT20 results
+$ boxmot eval --yolo-model yolox_x_MOT20_ablation.pt --reid-model lmbn_n_duke.pt --tracking-method boosttrack --source MOT20-ablation --verbose 
+# Dancetrack results
+$ boxmot eval --yolo-model yolox_x_dancetrack_ablation.pt --reid-model lmbn_n_duke.pt --tracking-method boosttrack --source dancetrack-ablation --verbose 
+# metrics on custom dataset
+$ boxmot eval --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method deepocsort  --source ./assets/MOT17-mini/train --verbose
 ```
 
 add `--gsi` to your command for postprocessing the MOT results by gaussian smoothed interpolation. Detections and embeddings are stored for the selected YOLO and ReID model respectively. They can then be loaded into any tracking algorithm. Avoiding the overhead of repeatedly generating this data.
@@ -177,7 +185,7 @@ We use a fast and elitist multiobjective genetic algorithm for tracker hyperpara
 
 ```bash
 # saves dets and embs under ./runs/dets_n_embs separately for each selected yolo and reid model
-$ boxmot generate-dets-embs --source ./assets/MOT17-mini/train --yolo-model yolov8n.pt yolov8s.pt --reid-model weights/osnet_x0_25_msmt17.pt
+$ boxmot generate --source ./assets/MOT17-mini/train --yolo-model yolov8n.pt yolov8s.pt --reid-model weights/osnet_x0_25_msmt17.pt
 # evolve parameters for specified tracking method using the selected detections and embeddings generated in the previous step
 $ boxmot tune --dets yolov8n --embs osnet_x0_25_msmt17 --n-trials 9 --tracking-method botsort --source ./assets/MOT17-mini/train
 ```

@@ -1,0 +1,33 @@
+
+input: "../data/images" 
+
+name: "yolov8_demo"
+yolo_weights: "../weights/yolov8x.pt"
+imgsz: 640
+conf: 0.3
+save_dir: "../data/output/yolov8x"
+fps: 30
+
+# tracking params
+track_high_thresh: 0.6
+track_low_thresh: 0.1
+new_track_thresh: 0.7
+track_buffer: 30
+match_thresh: 0.8
+min_box_area: 10.0
+
+# appearance model (reid)
+with_reid: false
+fast_reid_config: ""
+fast_reid_weights: ""
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+
+# flags
+fuse_score: false
+ablation: false
+mot20: false
+fp16: false
+
+# camera motion compensation method
+cmc_method: "sparseOptFlow"

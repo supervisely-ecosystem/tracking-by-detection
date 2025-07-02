@@ -52,9 +52,9 @@ class BotSort(BaseTracker):
         device: torch.device,
         half: bool,
         per_class: bool = False,
-        track_high_thresh: float = 0.6,
+        track_high_thresh: float = 0.5,
         track_low_thresh: float = 0.1,
-        new_track_thresh: float = 0.7,
+        new_track_thresh: float = 0.6,
         track_buffer: int = 30,
         match_thresh: float = 0.8,
         proximity_thresh: float = 0.5,
@@ -62,7 +62,7 @@ class BotSort(BaseTracker):
         cmc_method: str = "ecc",
         frame_rate=30,
         fuse_first_associate: bool = False,
-        with_reid: bool = True,
+        with_reid: bool = False,
     ):
         super().__init__(per_class=per_class)
         self.lost_stracks = []  # type: list[STrack]

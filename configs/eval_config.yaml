@@ -1,0 +1,8 @@
+images: ../data/images
+gt: ../data/labels/gt.txt
+predictions_dir: ../data/output/yolov8x
+output_path: ../data/eval_result/yolo_x
+show-model-names: true
+show-ids: true
+show-gt: false
+save-mp4: true

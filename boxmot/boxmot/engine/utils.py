@@ -3,9 +3,11 @@
 import json
 import shutil
 import time
+import re
+
 import zipfile
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,249 +22,80 @@ from boxmot.utils import ROOT
 from boxmot.utils import logger as LOGGER
 
 
-def split_dataset(src_fldr: Path, percent_to_delete: float = 0.5) -> None:
+def split_dataset(src_fldr: Path, percent_to_delete: float = 0.5) -> Tuple[Path, str]:
     """
     Copies the dataset to a new location and removes a specified percentage of images and annotations,
-    adjusting the frame index to start at 1.
+    adjusting the frame index to start at 1. Works for MOT17, MOT20, etc.
 
     Args:
-        src_fldr (Path): Source folder containing the dataset.
-        percent_to_delete (float): Percentage of images and annotations to remove.
+        src_fldr (Path): Source folder (e.g. /…/MOT20/train or /…/MOT20/test)
+        percent_to_delete (float): Fraction of the frames to drop (0.5 → drop 50%)
+
+    Returns:
+        dst_fldr (Path): The root of the new, smaller split (e.g. …/MOT20-50/train)
+        new_benchmark_name (str): e.g. "MOT20-50"
     """
-    # Ensure source path is a Path object
     src_fldr = Path(src_fldr)
 
-    # Generate the destination path by replacing "MOT17" with "MOT17-half" in the source path
-    new_benchmark_name = f"MOT17-{int(percent_to_delete * 100)}"
-    dst_fldr = Path(str(src_fldr).replace("MOT17", new_benchmark_name))
+    # --- detect the "MOTxx" part in the path ---
+    m = re.search(r"(MOT\d+)", str(src_fldr))
+    if not m:
+        raise ValueError(f"Could not find MOT benchmark in path: {src_fldr}")
+    benchmark = m.group(1)
 
-    # Copy the dataset to a new location manually using pathlib if it doesn't already exist
+    # build the new benchmark name
+    new_benchmark_name = f"{benchmark}-ablation"
+    dst_fldr = Path(str(src_fldr).replace(benchmark, new_benchmark_name))
+
+    # copy entire folder tree if not already done
     if not dst_fldr.exists():
-        dst_fldr.mkdir(parents=True)
         for item in src_fldr.rglob("*"):
+            target = dst_fldr / item.relative_to(src_fldr)
             if item.is_dir():
-                (dst_fldr / item.relative_to(src_fldr)).mkdir(
-                    parents=True, exist_ok=True
-                )
+                target.mkdir(parents=True, exist_ok=True)
             else:
-                (dst_fldr / item.relative_to(src_fldr)).write_bytes(item.read_bytes())
+                target.write_bytes(item.read_bytes())
 
-    # List all sequences in the destination folder
-    seq_paths = [f for f in dst_fldr.iterdir() if f.is_dir()]
-
-    # Iterate over each sequence and remove a percentage of images and annotations
-    for seq_path in seq_paths:
-        seq_gt_path = seq_path / "gt" / "gt.txt"
-
-        # Check if the gt.txt file exists
-        if not seq_gt_path.exists():
-            print(f"Ground truth file not found for {seq_path}. Skipping...")
+    # iterate every sequence under dst_fldr
+    for seq_path in dst_fldr.iterdir():
+        if not seq_path.is_dir():
             continue
 
-        df = pd.read_csv(seq_gt_path, sep=",", header=None)
-        nr_seq_imgs = df[0].unique().max()
-        split = int(nr_seq_imgs * (1 - percent_to_delete))
-
-        # Check if the sequence is already split
-        if nr_seq_imgs <= split:
-            print(f"Sequence {seq_path} already split. Skipping...")
+        gt_path = seq_path / "gt" / "gt.txt"
+        if not gt_path.exists():
+            LOGGER.warning(f"Skipping `{seq_path}` – no gt.txt found")
             continue
-        
-        print(f'Number of annotated frames in {seq_path}: Keeping from frame {split + 1} to {nr_seq_imgs}')
 
-        # Keep rows from the ground truth file beyond the split point
-        df = df[df[0] > split]
+        # load and compute split point
+        df = pd.read_csv(gt_path, header=None)
+        max_frame = int(df[0].max())
+        split_frame = int(max_frame * (1 - percent_to_delete))
 
-        # Adjust the frame indices to start from 1
-        df[0] = df[0] - split
+        if split_frame >= max_frame:
+            LOGGER.info(f"`{seq_path}` already ≤ split size, skipping.")
+            continue
 
-        df.to_csv(seq_gt_path, header=None, index=None, sep=",")
+        LOGGER.info(f"{seq_path.name}: keeping frames {split_frame+1}-{max_frame}")
 
-        # Remove images before the split point using pathlib
-        jpg_folder_path = seq_path / "img1"
-        jpg_paths = list(jpg_folder_path.glob("*.jpg"))
-        for jpg_path in jpg_paths:
-            # Extract frame number from image file name (e.g., '000300.jpg' -> 300)
-            frame_number = int(jpg_path.stem)
-            # Check if this frame number is in the removed range
-            if frame_number <= split:
-                jpg_path.unlink()
+        # filter and re‐index gt
+        df = df[df[0] > split_frame].copy()
+        df[0] = df[0] - split_frame
+        df.to_csv(gt_path, header=False, index=False)
 
-        # Rename the remaining images to have a continuous sequence starting from 1
-        remaining_jpg_paths = sorted(jpg_folder_path.glob("*.jpg"))
-        for new_index, jpg_path in enumerate(remaining_jpg_paths, start=1):
-            new_jpg_name = f"{new_index:06}.jpg"  # zero-padded to 6 digits
-            jpg_path.rename(jpg_folder_path / new_jpg_name)
+        # delete early images
+        img_folder = seq_path / "img1"
+        for img in img_folder.glob("*.jpg"):
+            if int(img.stem) <= split_frame:
+                img.unlink()
 
-        remaining_images = len(list(jpg_folder_path.glob("*.jpg")))
-        print(f"Number of images in {seq_path} after delete: {remaining_images}")
+        # rename rest to 000001…000xxx
+        remaining = sorted(img_folder.glob("*.jpg"))
+        for idx, img in enumerate(remaining, start=1):
+            img.rename(img_folder / f"{idx:06}.jpg")
+
+        LOGGER.info(f"{seq_path.name}: now {len(remaining)} images")
 
     return dst_fldr, new_benchmark_name
-
-
-def download_mot_eval_tools(val_tools_path):
-    """
-    Download the official evaluation tools for MOT metrics from the GitHub repository.
-
-    Parameters:
-        val_tools_path (Path): Path to the destination folder where the evaluation tools will be downloaded.
-
-    Returns:
-        None. Clones the evaluation tools repository and updates deprecated numpy types.
-    """
-    val_tools_url = "https://github.com/JonathonLuiten/TrackEval"
-
-    try:
-        # Clone the repository
-        Repo.clone_from(val_tools_url, val_tools_path)
-        LOGGER.debug("Official MOT evaluation repo downloaded successfully.")
-    except exc.GitError as err:
-        LOGGER.debug(f"Evaluation repo already downloaded or an error occurred: {err}")
-
-    # Fix deprecated np.float, np.int & np.bool by replacing them with native Python types
-    deprecated_types = {"np.float": "float", "np.int": "int", "np.bool": "bool"}
-
-    for file_path in val_tools_path.rglob("*"):
-        if file_path.suffix in {".py", ".txt"}:  # only consider .py and .txt files
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                updated_content = content
-                for old_type, new_type in deprecated_types.items():
-                    updated_content = updated_content.replace(old_type, new_type)
-
-                if updated_content != content:  # Only write back if there were changes
-                    file_path.write_text(updated_content, encoding="utf-8")
-                    LOGGER.info(f"Replaced deprecated types in {file_path}.")
-            except Exception as e:
-                LOGGER.error(f"Error processing {file_path}: {e}")
-
-
-def download_mot_dataset(val_tools_path, benchmark, max_retries=5, backoff_factor=2):
-    """
-    Download a specific MOT dataset zip file with resumable support and retry logic.
-
-    Parameters:
-        val_tools_path (Path): Path to the destination folder where the MOT benchmark zip will be downloaded.
-        benchmark (str): The MOT benchmark to download (e.g., 'MOT20', 'MOT17').
-        max_retries (int): Maximum number of retries for the download in case of failure.
-        backoff_factor (int): Exponential backoff factor for delays between retries.
-
-    Returns:
-        Path: The path to the downloaded zip file.
-    """
-    url = f"https://motchallenge.net/data/{benchmark}.zip"
-    zip_dst = val_tools_path / f"{benchmark}.zip"
-
-    retries = 0  # Initialize retry counter
-
-    response = None
-    while retries <= max_retries:
-        try:
-            response = requests.head(url, allow_redirects=True)
-            # Consider any status code less than 400 (e.g., 200, 302) as indicating that the resource exists
-            if response.status_code < 400:
-                # Get the total size of the file from the server
-                total_size_in_bytes = int(response.headers.get("content-length", 0))
-
-                # Check if there is already a partially or fully downloaded file
-                if zip_dst.exists():
-                    current_size = zip_dst.stat().st_size
-
-                    # If the file is fully downloaded, skip the download
-                    if current_size >= total_size_in_bytes:
-                        LOGGER.info(f"{benchmark}.zip is already fully downloaded.")
-                        return zip_dst
-
-                    # If the file is partially downloaded, set the range header to resume
-                    resume_header = {"Range": f"bytes={current_size}-"}
-                    LOGGER.info(
-                        f"Resuming download for {benchmark}.zip from byte {current_size}..."
-                    )
-                else:
-                    current_size = 0
-                    resume_header = {}
-
-                # Start or resume the download
-                response = requests.get(url, headers=resume_header, stream=True)
-                response.raise_for_status()  # Check for HTTP request errors
-
-                with open(zip_dst, "ab") as file, tqdm(
-                    desc=zip_dst.name,
-                    total=total_size_in_bytes,
-                    initial=current_size,
-                    unit="iB",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                ) as bar:
-                    for data in response.iter_content(chunk_size=1024):
-                        size = file.write(data)
-                        bar.update(size)
-
-                LOGGER.info(f"{benchmark}.zip downloaded successfully.")
-                return zip_dst  # If download is successful, return the path
-
-            else:
-                LOGGER.warning(f"{benchmark} is not downloadable from {url}")
-                return None
-
-        except (requests.HTTPError, requests.ConnectionError) as e:
-            if response and response.status_code == 416:  # Handle "Requested Range Not Satisfiable" error
-                LOGGER.info(f"{benchmark}.zip is already fully downloaded.")
-                return zip_dst
-            LOGGER.error(f"Error occurred while downloading {benchmark}.zip: {e}")
-            retries += 1
-            wait_time = backoff_factor**retries
-            LOGGER.info(
-                f"Retrying download in {wait_time} seconds... (Attempt {retries} of {max_retries})"
-            )
-            time.sleep(wait_time)  # Exponential backoff delay
-
-        except Exception as e:
-            LOGGER.error(f"An unexpected error occurred: {e}")
-            retries += 1
-            wait_time = backoff_factor**retries
-            LOGGER.info(
-                f"Retrying download in {wait_time} seconds... (Attempt {retries} of {max_retries})"
-            )
-            time.sleep(wait_time)  # Exponential backoff delay
-
-    LOGGER.error(f"Failed to download {benchmark}.zip after {max_retries} retries.")
-    return None
-
-
-def unzip_mot_dataset(zip_path, val_tools_path, benchmark):
-    """
-    Unzip a downloaded MOT dataset zip file into the specified directory.
-
-    Parameters:
-        zip_path (Path): Path to the downloaded MOT benchmark zip file.
-        val_tools_path (Path): Base path to the destination folder where the dataset will be unzipped.
-        benchmark (str): The MOT benchmark that was downloaded (e.g., 'MOT20', 'MOT17').
-
-    Returns:
-        None
-    """
-    if zip_path is None:
-        LOGGER.warning("No zip file. Skipping unzipping")
-        return None
-
-    extract_path = val_tools_path / "data" / benchmark
-    if not extract_path.exists():
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                # folder will be called as the original fetched file
-                zip_ref.extractall(val_tools_path / "data")
-
-            LOGGER.info(f"{benchmark}.zip unzipped successfully.")
-        except zipfile.BadZipFile:
-            LOGGER.error(
-                f"{zip_path.name} is corrupted. Try deleting the file and run the script again."
-            )
-        except Exception as e:
-            LOGGER.error(f"An error occurred while unzipping {zip_path.name}: {e}")
-    else:
-        LOGGER.info(f"{benchmark} folder already exists.")
-        return extract_path
 
 
 def eval_setup(opt, val_tools_path):
@@ -401,3 +234,7 @@ def write_mot_results(txt_path: Path, mot_results: np.ndarray) -> None:
             # Open the file in append mode and save the MOT results
             with open(str(txt_path), "a") as file:
                 np.savetxt(file, mot_results, fmt="%d,%d,%d,%d,%d,%d,%d,%d,%.6f")
+
+
+# new_folder, name = split_dataset(Path("./boxmot/engine/trackeval/data/MOT20/train"), percent_to_delete=0.5)
+# print(new_folder, name)
