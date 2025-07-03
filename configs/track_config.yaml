@@ -1,11 +1,15 @@
 
 input: "../data/images" 
+device: "cuda"
+device_id: '0'
 
 name: "yolov8_demo"
 yolo_weights: "../weights/yolov8x.pt"
 imgsz: 640
 conf: 0.3
 save_dir: "../data/output/yolov8x"
+botsort_output: "botsort_original_reid.txt"
+boxmot_output: "botsort_boxmot_reid.txt"
 fps: 30
 
 # tracking params
@@ -18,8 +22,9 @@ min_box_area: 10.0
 
 # appearance model (reid)
 with_reid: false
-fast_reid_config: ""
-fast_reid_weights: ""
+fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_S50.yml"
+fast_reid_weights: "../weights/mot17_sbs_S50.pth"
+reid_weights: "../weights/osnet_x1_0_msmt17.pt"
 proximity_thresh: 0.5
 appearance_thresh: 0.25
 
@@ -31,3 +36,4 @@ fp16: false
 
 # camera motion compensation method
 cmc_method: "sparseOptFlow"
+cmc_method_boxmot: "sof"

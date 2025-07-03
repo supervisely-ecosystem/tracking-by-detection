@@ -169,7 +169,7 @@ if make_collage:
     else:
         size = (w*2, h*2)
     video_writers['collage'] = cv2.VideoWriter(
-        str(out_dir / "comparison.mp4"), fourcc, 5, size
+        str(out_dir / f"comparison_{len(predictions)}.mp4"), fourcc, 5, size
     )
 
 # ------------------------------------------------------------
@@ -232,6 +232,6 @@ combined = combined[[
     'num_switches','num_false_positives','num_misses'
 ]]
 
-excel_path = out_dir / "metrics.xlsx"
+excel_path = out_dir / f"metrics_{len(predictions)}.xlsx"
 combined.to_excel(excel_path, index=False)
 print(f"Метрики сохранены в: {excel_path}")
