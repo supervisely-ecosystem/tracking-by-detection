@@ -151,13 +151,15 @@ if not predictions:
 # Подготовка вывода видео
 out_dir = Path(args['output_path'])
 out_dir.mkdir(parents=True, exist_ok=True)
-fourcc       = cv2.VideoWriter_fourcc(*'mp4v')
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
 video_writers = {}
 
 # Индивидуальные видео
+scale_factor = 0.75
+new_w, new_h = int(w * scale_factor), int(h * scale_factor)
 for name in predictions:
     video_writers[name] = cv2.VideoWriter(
-        str(out_dir / f"{name}.mp4"), fourcc, 5, (w, h)
+        str(out_dir / f"{name}.avi"), fourcc, 5, (new_w, new_h)
     )
 
 # Коллаж, если нужно
@@ -169,7 +171,7 @@ if make_collage:
     else:
         size = (w*2, h*2)
     video_writers['collage'] = cv2.VideoWriter(
-        str(out_dir / f"comparison_{len(predictions)}.mp4"), fourcc, 5, size
+        str(out_dir / f"comparison_{len(predictions)}.avi"), fourcc, 5, size
     )
 
 # ------------------------------------------------------------
@@ -196,6 +198,7 @@ for idx, fname in enumerate(frames, start=1):
                 (255,255,255),2, cv2.LINE_AA
             )
         panels[name] = panel
+        panel = cv2.resize(panel, (new_w, new_h))
         video_writers[name].write(panel)
 
     if 'collage' in video_writers:
