@@ -9,3 +9,5 @@ __pycache__
 *.png
 *.pyc
 *.pyd
+venv
+.vscode

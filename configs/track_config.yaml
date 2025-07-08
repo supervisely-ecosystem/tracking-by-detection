@@ -1,5 +1,5 @@
 
-input: "../data/images" 
+input: "../data/dataset/train/v_-6Os86HzwCs_c009/img1" 
 device: "cuda"
 device_id: '0'
 
@@ -7,7 +7,7 @@ name: "yolov8_demo"
 yolo_weights: "../weights/yolov8x.pt"
 imgsz: 640
 conf: 0.3
-save_dir: "../data/output/yolov8x"
+save_dir: "../data/output/SportsMOT/boxmot_to_botsort_exp_1"
 botsort_output: "botsort_original_reid.txt"
 boxmot_output: "botsort_boxmot_reid.txt"
 fps: 30
@@ -21,9 +21,11 @@ match_thresh: 0.8
 min_box_area: 10.0
 
 # appearance model (reid)
-with_reid: false
-fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_S50.yml"
-fast_reid_weights: "../weights/mot17_sbs_S50.pth"
+with_reid: true
+reid_model: "osnet" # for botsort
+fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_R101-ibn.yml"
+# fast_reid_weights: "../weights/msmt_sbs_R101-ibn.pth"
+fast_reid_weights: "../weights/osnet_x1_0_msmt17.pth" # experiment
 reid_weights: "../weights/osnet_x1_0_msmt17.pt"
 proximity_thresh: 0.5
 appearance_thresh: 0.25

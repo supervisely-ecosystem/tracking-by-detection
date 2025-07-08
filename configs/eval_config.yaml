@@ -1,7 +1,7 @@
-images: ../data/images
-gt: ../data/labels/gt.txt
-predictions_dir: ../data/output/yolov8x
-output_path: ../data/eval_result/yolo_x
+images: ../data/dataset/train/v_-6Os86HzwCs_c009/img1
+gt: ../data/dataset/train/v_-6Os86HzwCs_c009/gt/gt_fixed.txt
+predictions_dir: ../data/output/SportsMOT/boxmot_to_botsort_exp_1
+output_path: ../data/eval_result/SportsMOT/boxmot_to_botsort_exp_1
 show-model-names: true
 show-ids: true
 show-gt: false

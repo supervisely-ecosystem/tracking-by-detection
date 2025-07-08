@@ -9,6 +9,7 @@ from tracker.basetrack import BaseTrack, TrackState
 from tracker.kalman_filter import KalmanFilter
 
 from fast_reid.fast_reid_interfece import FastReIDInterface
+from osnet_reid.osnet_reid_interface import OsnetReIDInterface
 
 
 class STrack(BaseTrack):
@@ -249,7 +250,11 @@ class BoTSORT(object):
         self.appearance_thresh = args.appearance_thresh
 
         if args.with_reid:
-            self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+            if args.reid_model == 'fast_reid':
+                self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+            elif args.reid_model == 'osnet':
+                print('model osnet')
+                self.encoder = OsnetReIDInterface(args.reid_weights, args.device, args.fp16)
 
         self.gmc = GMC(method=args.cmc_method, verbose=[args.name, args.ablation])
 
@@ -290,6 +295,7 @@ class BoTSORT(object):
         '''Extract embeddings '''
         if self.args.with_reid:
             features_keep = self.encoder.inference(img, dets)
+
 
         if len(dets) > 0:
             '''Detections'''
