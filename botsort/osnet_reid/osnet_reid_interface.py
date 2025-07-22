@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from .osnet import osnet_x1_0
 from collections import OrderedDict
+import torch.nn.functional as F
 
 class OsnetReIDModel:
     def __init__(self, weights_path: Path, device: torch.device = torch.device("cpu"), half: bool = False):
@@ -38,8 +39,8 @@ class OsnetReIDModel:
         crops = self._get_crops(xyxys, img)
         with torch.no_grad():
             features = self.model(crops)
-        features = features.cpu().numpy()
-        features = features / np.linalg.norm(features, axis=1, keepdims=True)
+            features = F.normalize(features, dim=1).cpu().numpy()
+
         return features
 
     def _get_crops(self, xyxys, img):

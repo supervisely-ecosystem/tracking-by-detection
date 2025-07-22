@@ -13,6 +13,7 @@ from osnet_reid.osnet_reid_interface import OsnetReIDInterface
 
 
 class STrack(BaseTrack):
+
     shared_kalman = KalmanFilter()
 
     def __init__(self, tlwh, score, cls, feat=None, feat_history=50):
@@ -252,6 +253,7 @@ class BoTSORT(object):
         if args.with_reid:
             if args.reid_model == 'fast_reid':
                 self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+                print('model resnset')
             elif args.reid_model == 'osnet':
                 print('model osnet')
                 self.encoder = OsnetReIDInterface(args.reid_weights, args.device, args.fp16)
@@ -445,11 +447,11 @@ class BoTSORT(object):
         self.tracked_stracks, self.lost_stracks = remove_duplicate_stracks(self.tracked_stracks, self.lost_stracks)
 
         # output_stracks = [track for track in self.tracked_stracks if track.is_activated]
-        output_stracks = [track for track in self.tracked_stracks]
+        output_stracks = [track for track in self.tracked_stracks if track.is_activated]
 
 
         return output_stracks
-
+        
 
 def joint_stracks(tlista, tlistb):
     exists = {}

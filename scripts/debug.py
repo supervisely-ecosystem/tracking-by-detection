@@ -17,7 +17,6 @@ from pathlib import Path
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(ROOT)
 sys.path.append(os.path.join(ROOT, 'botsort'))
-
 sys.path.append(os.path.join(ROOT, 'boxmot'))
 
 from botsort.tracker.mc_bot_sort import BoTSORT as BoTSORT_ORIG
@@ -96,9 +95,12 @@ def run_dual_tracking(args):
         cap = cv2.VideoCapture(args.input)
 
     frame_id = 0
-    while True:
+    while True: 
         frame_id += 1
 
+        if frame_id == 10:
+            break  # Для отладки, уберите это в реальном использовании
+        
         # 3.1 Чтение кадра
         if image_paths:
             if frame_id > len(image_paths):
@@ -128,8 +130,8 @@ def run_dual_tracking(args):
             dets = np.zeros((0,6), dtype=float)
 
         # 6) Обновляем трекеры
-        targets_orig   = tracker_orig.update(dets.copy(), frame)
-        targets_boxmot = tracker_boxmot.update(dets.copy(), frame)
+        targets_orig   = tracker_orig.update(dets, frame)
+        targets_boxmot = tracker_boxmot.update(dets, frame)
 
         # 7) Сбор результатов оригинального трекера (tlwh → tlbr)
         tlbrs_o, ids_o, scores_o = [], [], []

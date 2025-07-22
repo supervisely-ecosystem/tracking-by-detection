@@ -7,7 +7,7 @@ name: "yolov8_demo"
 yolo_weights: "../weights/yolov8x.pt"
 imgsz: 640
 conf: 0.3
-save_dir: "../data/output/SportsMOT/boxmot_to_botsort_exp_1"
+save_dir: "../data/output/SportsMOT/track_with_fix"
 botsort_output: "botsort_original_reid.txt"
 boxmot_output: "botsort_boxmot_reid.txt"
 fps: 30
@@ -23,7 +23,7 @@ min_box_area: 10.0
 # appearance model (reid)
 with_reid: true
 reid_model: "osnet" # for botsort
-fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_R101-ibn.yml"
+# fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_R101-ibn.yml"
 # fast_reid_weights: "../weights/msmt_sbs_R101-ibn.pth"
 fast_reid_weights: "../weights/osnet_x1_0_msmt17.pth" # experiment
 reid_weights: "../weights/osnet_x1_0_msmt17.pt"

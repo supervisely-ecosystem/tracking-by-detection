@@ -304,7 +304,7 @@ class BotSort(BaseTracker):
             u_detection: Unconfirmed detection indices.
             detections: Current list of detections.
             activated_stracks: List of newly activated tracks.
-            removed_stracks: List of tracks to remove.
+            removed_Fws: List of tracks to remove.
         """
         # Only use detections that are unconfirmed (filtered by u_detection)
         detections = [detections[i] for i in u_detection]
