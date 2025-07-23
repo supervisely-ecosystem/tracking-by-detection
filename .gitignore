@@ -11,4 +11,6 @@ __pycache__
 *.pyd
 venv
 .vscode
-supervisely
+superviselyvenv/
+__pycache__/
+*.pyc
