@@ -11,3 +11,4 @@ __pycache__
 *.pyd
 venv
 .vscode
+supervisely
