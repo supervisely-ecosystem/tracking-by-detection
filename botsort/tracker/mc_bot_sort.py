@@ -252,9 +252,9 @@ class BoTSORT(object):
 
         if args.with_reid:
             if args.reid_model == 'fast_reid':
-                self.encoder = FastReIDInterface(args.fast_reid_config, args.fast_reid_weights, args.device)
+                self.encoder = FastReIDInterface(args.fast_reid_config, args.reid_weights, args.device)
                 print('model resnset')
-            elif args.reid_model == 'osnet':
+            elif args.reid_model == 'osnet_reid':
                 print('model osnet')
                 self.encoder = OsnetReIDInterface(args.reid_weights, args.device, args.fp16)
 

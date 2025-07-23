@@ -7,13 +7,15 @@ from collections import OrderedDict
 import torch.nn.functional as F
 
 class OsnetReIDModel:
-    def __init__(self, weights_path: Path, device: torch.device = torch.device("cpu"), half: bool = False):
+    def __init__(self, weights_path: Path = None, device: torch.device = torch.device("cpu"), half: bool = False):
         self.device = device
         self.half = half
         self.input_shape = (256, 128)
-
-        self.model = osnet_x1_0(num_classes=1000, loss='softmax', pretrained=False, use_gpu=device)
-        self.load_pretrained_weights(weights_path)
+        if weights_path is None:
+            self.model = osnet_x1_0(num_classes=1000, loss='softmax', pretrained=True, use_gpu=device)
+        else:
+            self.model = osnet_x1_0(num_classes=1000, loss='softmax', pretrained=False, use_gpu=device)
+            self.load_pretrained_weights(weights_path)
         self.model.to(self.device).eval()
         if self.half:
             self.model.half()
