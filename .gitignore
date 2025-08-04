@@ -13,5 +13,6 @@ venv
 .vscode
 supervisely
 venv/
+venv2/
 __pycache__/
 *.pyc

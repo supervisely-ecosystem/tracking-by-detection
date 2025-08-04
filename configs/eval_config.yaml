@@ -1,7 +1,7 @@
 images: ../data/dataset/train/v_-6Os86HzwCs_c009/img1
 gt: ../data/dataset/train/v_-6Os86HzwCs_c009/gt/gt_fixed.txt
-predictions_dir: ../data/output/SportsMOT/track_with_fix
-output_path: ../data/eval_result/SportsMOT/track_with_fix
+predictions_dir: ../data/output/SportsMOT/sdk_v2_2
+output_path: ../data/eval_result/SportsMOT/sdk_v2_2 
 show-model-names: true
 show-ids: true
 show-gt: false

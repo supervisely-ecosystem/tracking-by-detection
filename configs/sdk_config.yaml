@@ -1,0 +1,45 @@
+# Конфигурация для установленного supervisely
+
+# === INPUT/OUTPUT SETTINGS ===
+input: "../data/dataset/train/v_-6Os86HzwCs_c009/img1"  # Папка с изображениями или путь к видео
+save_dir: "../data/output/SportsMOT/supervisely_test"
+fps: 30
+
+# === DETECTOR SETTINGS ===
+# Использование уже развернутой модели по task_id
+# detector_task_id: 12345  # ID задачи развернутой модели в Supervisely
+
+# Альтернативно: развертывание новой модели
+detector_model: "rt-detrv2/RT-DETRv2-M"
+detector_device: "cuda:0"
+detector_settings:
+  conf: 0.3
+  classes: ["person"]
+
+# === TRACKER EXECUTION SETTINGS ===
+run_original: true      # Запускать оригинальный BoTSORT
+run_custom: true        # Запускать собственную обертку с исправленной конвертацией  
+run_supervisely: true   # Запускать Supervisely BoTTracker (если доступен)
+
+# === TRACKING PARAMETERS ===
+track_high_thresh: 0.6
+track_low_thresh: 0.1
+new_track_thresh: 0.7
+track_buffer: 30
+match_thresh: 0.8
+min_box_area: 10.0
+
+# === ReID SETTINGS ===
+with_reid: true
+reid_model: "osnet_reid"
+reid_weights: "../weights/osnet_x1_0_msmt17.pt"
+fast_reid_weights: "../weights/osnet_x1_0_msmt17.pth"
+fast_reid_config: "../botsort/fast_reid/configs/MOT17/sbs_R101-ibn.yml"
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+
+# === OTHER SETTINGS ===
+fuse_score: false
+cmc_method: "sparseOptFlow"
+device: "cuda"
+device_id: '0'

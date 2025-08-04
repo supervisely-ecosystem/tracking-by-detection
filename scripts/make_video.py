@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""
-Скрипт для сборки набора кадров в видеофайл с помощью OpenCV.
-"""
 import cv2
 import os
 import argparse

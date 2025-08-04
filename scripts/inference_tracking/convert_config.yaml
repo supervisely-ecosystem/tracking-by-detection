@@ -1,0 +1,14 @@
+# Configuration for convert_to_mot.py
+# Convert Supervisely video annotations to MOT format and compute metrics
+
+# Input paths
+sly_annotation_path: "/root/yolo/supervisely_integration/serve/scripts/inference_tracking/output.json"
+ground_truth_path: "/root/tracking-by-detection/data/dataset/train/v_-6Os86HzwCs_c009/gt/gt.txt"  # Optional, set to null to skip metrics
+
+# Output settings
+output_dir: "/root/yolo/supervisely_integration/serve/scripts/inference_tracking/mot_output"
+converted_filename: "converted_predictions.txt"
+metrics_filename: "mot_metrics.xlsx"
+
+# Processing settings
+confidence_threshold: 0.0  # Minimum confidence to include detection (usually 0.0 for GT)

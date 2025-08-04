@@ -1,6 +1,21 @@
+#track.py:
+
+
 import os
 import os.path as osp
 import sys
+
+# Получаем абсолютные пути
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+
+# Убираем project_root из sys.path для избежания конфликта с supervisely
+if project_root in sys.path:
+    sys.path.remove(project_root)
+
+# Теперь импорты
+from supervisely.nn.tracker.botsort.tracker.mc_bot_sort import BoTSORT as BoTSORT_ORIG
+# from botsort.tracker.tracking_utils.timer import Timer
 import time
 import argparse
 import cv2
@@ -13,15 +28,10 @@ import yaml
 from types import SimpleNamespace
 from pathlib import Path
 
-# --- Подключение трекеров ---
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(ROOT)
-sys.path.append(os.path.join(ROOT, 'botsort'))
-sys.path.append(os.path.join(ROOT, 'boxmot'))
 
-from botsort.tracker.mc_bot_sort import BoTSORT as BoTSORT_ORIG
-from boxmot.trackers.botsort.botsort import BotSort as BoTSORT_BOXMOT
-from botsort.tracker.tracking_utils.timer import Timer
+# from botsort.tracker.mc_bot_sort import BoTSORT as BoTSORT_ORIG
+# from boxmot.trackers.botsort.botsort import BotSort as BoTSORT_BOXMOT
+# from botsort.tracker.tracking_utils.timer import Timer
 
 
 def parse_args():
@@ -60,29 +70,29 @@ def run_dual_tracking(args):
     model.fuse()
     
     tracker_orig = BoTSORT_ORIG(args, frame_rate=args.fps)
-    if not args.with_reid:
-        tracker_boxmot = BoTSORT_BOXMOT(args, device=device, half=args.fp16, frame_rate=args.fps, with_reid=args.with_reid)
-    else:
-        tracker_boxmot = BoTSORT_BOXMOT(
-        reid_weights=Path(args.reid_weights),
-        device=args.device_id,
-        half=args.fp16,
-        with_reid=args.with_reid,
-        track_high_thresh=args.track_high_thresh,
-        track_low_thresh=args.track_low_thresh,
-        new_track_thresh=args.new_track_thresh,
-        track_buffer=args.track_buffer,
-        match_thresh=args.match_thresh,
-        proximity_thresh=args.proximity_thresh,
-        appearance_thresh=args.appearance_thresh,
-        cmc_method=args.cmc_method_boxmot,
-        frame_rate=args.fps,
-        fuse_first_associate=args.fuse_score,
-        )
+    # if not args.with_reid:
+    #     tracker_boxmot = BoTSORT_BOXMOT(args, device=device, half=args.fp16, frame_rate=args.fps, with_reid=args.with_reid)
+    # else:
+    #     tracker_boxmot = BoTSORT_BOXMOT(
+    #     reid_weights=Path(args.reid_weights),
+    #     device=args.device_id,
+    #     half=args.fp16,
+    #     with_reid=args.with_reid,
+    #     track_high_thresh=args.track_high_thresh,
+    #     track_low_thresh=args.track_low_thresh,
+    #     new_track_thresh=args.new_track_thresh,
+    #     track_buffer=args.track_buffer,
+    #     match_thresh=args.match_thresh,
+    #     proximity_thresh=args.proximity_thresh,
+    #     appearance_thresh=args.appearance_thresh,
+    #     cmc_method=args.cmc_method_boxmot,
+    #     frame_rate=args.fps,
+    #     fuse_first_associate=args.fuse_score,
+    #     )
 
 
 
-    timer = Timer()
+    # timer = Timer()
     results_orig   = []
     results_boxmot = []
 
@@ -95,12 +105,9 @@ def run_dual_tracking(args):
         cap = cv2.VideoCapture(args.input)
 
     frame_id = 0
-    while True: 
+    while True:
         frame_id += 1
 
-        if frame_id == 10:
-            break  # Для отладки, уберите это в реальном использовании
-        
         # 3.1 Чтение кадра
         if image_paths:
             if frame_id > len(image_paths):
@@ -112,9 +119,9 @@ def run_dual_tracking(args):
                 break
 
         # 4) Делаем детекции
-        timer.tic()
+        # timer.tic()
         det_out = model(frame, conf=args.conf, imgsz=args.imgsz)[0]
-        timer.toc()
+        # timer.toc()
 
         # 5) Формируем dets: (N,6) [x1,y1,x2,y2,score,class]
         if det_out.boxes is not None and len(det_out.boxes):
@@ -130,8 +137,8 @@ def run_dual_tracking(args):
             dets = np.zeros((0,6), dtype=float)
 
         # 6) Обновляем трекеры
-        targets_orig   = tracker_orig.update(dets, frame)
-        targets_boxmot = tracker_boxmot.update(dets, frame)
+        targets_orig   = tracker_orig.update(dets.copy(), frame)
+        # targets_boxmot = tracker_boxmot.update(dets.copy(), frame)
 
         # 7) Сбор результатов оригинального трекера (tlwh → tlbr)
         tlbrs_o, ids_o, scores_o = [], [], []
@@ -145,20 +152,20 @@ def run_dual_tracking(args):
 
         # 8) Сбор результатов BOXMOT (он уже отдаёт tlbr)
         tlbrs_b, ids_b, scores_b = [], [], []
-        for t in targets_boxmot:
-            x1, y1, x2, y2 = t[:4]
-            tid = int(t[4])
-            score = float(t[5])
-            if (x2 - x1) * (y2 - y1) > 10:
-                tlbrs_b.append((x1, y1, x2, y2))
-                ids_b.append(tid)
-                scores_b.append(score)
-        results_boxmot.append((frame_id, tlbrs_b, ids_b, scores_b))
+        # for t in targets_boxmot:
+        #     x1, y1, x2, y2 = t[:4]
+        #     tid = int(t[4])
+        #     score = float(t[5])
+        #     if (x2 - x1) * (y2 - y1) > 10:
+        #         tlbrs_b.append((x1, y1, x2, y2))
+        #         ids_b.append(tid)
+        #         scores_b.append(score)
+        # results_boxmot.append((frame_id, tlbrs_b, ids_b, scores_b))
 
 
     # Запись результатов
     write_results(osp.join(args.save_dir, args.botsort_output), results_orig)
-    write_results(osp.join(args.save_dir, args.boxmot_output), results_boxmot)
+    # write_results(osp.join(args.save_dir, args.boxmot_output), results_boxmot)
 
     if not image_paths:
         cap.release()

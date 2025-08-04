@@ -1,0 +1,12 @@
+video_path: "/root/tracking-by-detection/data/dataset/train/v_-6Os86HzwCs_c009/output.avi"
+output_path: "/root/yolo/supervisely_integration/serve/scripts/inference_tracking/output.json"
+state:
+  tracker: "bot"
+  tracker_settings": 
+    track_high_thresh: 0.5,
+    with_reid: True,
+    device: "cuda" 
+  device: "cuda"
+   
+
+
